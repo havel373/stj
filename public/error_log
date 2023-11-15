@@ -1,0 +1,1 @@
+[06-Aug-2023 10:18:21 Asia/Jakarta] PHP Fatal error:  Access level to App\Models\MasterStatus::$timestamps must be public (as in class Illuminate\Database\Eloquent\Model) in /home/cars8636/public_html/stj.careernetwork.asia/app/Models/MasterStatus.php on line 8

@@ -1,0 +1,191 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Driver;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+
+class DriverController extends Controller
+{
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index(Request $request)
+    {
+        if($request->ajax() ){
+            $status_karyawan = $request->status_karyawan;
+            if($status_karyawan == ''){
+                $collection = Driver::orderBy('created_at','desc')->paginate(10);
+            }
+            if($status_karyawan != ''){
+                $collection = Driver::orderBy('created_at','desc')->where('status_karyawan', $status_karyawan)->paginate(10);
+            }
+            return view('pages.web.driver.list', compact('collection'));
+        }
+        return view('pages.web.driver.main');
+    }
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        $user = User::where('role', 's')
+        ->whereNotIn('id', function($query){
+            $query->select('user_id')->from('master_driver');
+        })
+        ->get();
+        return view('pages.web.driver.input', ['data' => new Driver, 'user' => $user]);
+    }
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'nama_driver' => 'required',
+            'status' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            $errors = $validator->errors();
+            if ($errors->has('nama_driver')) {
+                return response()->json([
+                    'alert' => 'error',
+                    'message' => $errors->first('nama_driver'),
+                ]);
+            }else if ($errors->has('status')) {
+                return response()->json([
+                    'alert' => 'error',
+                    'message' => $errors->first('status'),
+                ]);
+            }
+        }
+        $user = User::where('id', $request->user_id)->first();
+        $user->name = $request->nama_driver;
+        $user->no_hp = $request->nomor_telp;
+        $user->update();
+        $driver = new Driver;
+        $driver->tanggal_masuk = $request->tanggal_masuk;
+        $driver->no_ktp = $request->no_ktp;
+        $driver->alamat = $request->alamat;
+        $driver->pic = $request->pic;
+        $driver->status = $request->status;
+        $driver->user_id = $request->user_id;
+        $driver->save();
+        return response()->json([
+            'alert' => 'success',
+            'message' => 'Driver Disimpan',
+        ], 201);
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  \App\Models\Driver  $driver
+     * @return \Illuminate\Http\Response
+     */
+    public function show(Driver $driver)
+    {
+        //
+    }
+
+    /**
+     * Show the form for editing the specified resource.
+     *
+     * @param  \App\Models\Driver  $driver
+     * @return \Illuminate\Http\Response
+     */
+    public function edit(Driver $driver)
+    {
+        $existingDriverId = $driver->user_id;
+        $user = User::where('role', 's')
+        ->where(function ($query) use ($existingDriverId) {
+            $query->whereNotIn('id', function ($subQuery) {
+                $subQuery->select('user_id')->from('master_driver');
+            })->orWhere('id', $existingDriverId); 
+        })
+        ->get();
+        return view('pages.web.driver.input', ['data' => $driver, 'user' => $user]);
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Models\Driver  $driver
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request, Driver $driver)
+    {
+        $validator = Validator::make($request->all(), [
+            'nama_driver' => 'required',
+            'status' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            $errors = $validator->errors();
+            if ($errors->has('nama_driver')) {
+                return response()->json([
+                    'alert' => 'error',
+                    'message' => $errors->first('nama_driver'),
+                ]);
+            }else if ($errors->has('status')) {
+                return response()->json([
+                    'alert' => 'error',
+                    'message' => $errors->first('status'),
+                ]);
+            }
+        }
+        
+        $user = User::where('id', $request->user_id)->first();
+        $user->name = $request->nama_driver;
+        $user->no_hp = $request->nomor_telp;
+        $user->update();
+        $driver->tanggal_masuk = $request->tanggal_masuk;
+        $driver->no_ktp = $request->no_ktp;
+        $driver->alamat = $request->alamat;
+        $driver->pic = $request->pic;
+        $driver->status = $request->status;
+        $driver->user_id = $request->user_id;
+        $driver->update();
+        return response()->json([
+            'alert' => 'success',
+            'message' => 'Driver Diubah',
+        ], 200);
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Models\Driver  $driver
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(Driver $driver)
+    {
+        try{
+            $driver->delete();
+            $user = User::where('id', $driver->user_id)->first();
+            $user->delete();
+            return response()->json([
+                'alert' => 'success',
+                'message' => 'Driver Dihapus',
+            ], 200);
+        }catch(\Exception $e){
+            return response()->json([
+                'alert' => 'error',
+                'message' => 'Driver Tidak Dapat Dihapus Karena terdapat schedule yang berhubungan dengan driver ini',
+            ]);
+        }
+    }
+}
